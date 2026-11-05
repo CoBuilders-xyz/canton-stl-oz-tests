@@ -1,0 +1,98 @@
+name: OZ Vault test
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oz-vault-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out pinned OpenZeppelin contracts
+        uses: actions/checkout@v4
+        with:
+          repository: OpenZeppelin/canton-contracts
+          ref: 1899f7a4326c9e1b6b76cb434e490e2e82331d9c
+          path: .upstream
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.10.0"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Prepare reports
+        run: |
+          mkdir -p .reports
+          echo "DPM_HOME=$RUNNER_TEMP/dpm" >> "$GITHUB_ENV"
+          git -C .upstream rev-parse HEAD | tee .reports/upstream-commit.txt
+      - name: Install DPM, SDK 3.5.8 and Canton 3.5.6
+        working-directory: .upstream
+        run: |
+          set -euo pipefail
+          install_dir="$(mktemp -d)"
+          trap 'rm -rf "$install_dir"' EXIT
+          curl --fail --location --retry 3 \
+            https://get.digitalasset.com/install/dpm-sdk/dpm-3.5.8-linux-amd64.tar.gz \
+            --output "$install_dir/sdk.tar.gz"
+          mkdir "$install_dir/sdk"
+          tar -xzf "$install_dir/sdk.tar.gz" -C "$install_dir/sdk" --strip-components=1
+          "$install_dir/sdk/bin/dpm" bootstrap "$install_dir/sdk"
+          export PATH="$DPM_HOME/bin:$PATH"
+          echo "$DPM_HOME/bin" >> "$GITHUB_PATH"
+          dpm install
+          mkdir "$install_dir/runtime"
+          printf 'components:\n  - canton-open-source:3.5.6\n' > "$install_dir/runtime/daml.yaml"
+          (cd "$install_dir/runtime" && dpm install package)
+      - name: Record toolchain versions
+        working-directory: .upstream
+        run: |
+          set -euo pipefail
+          {
+            node --version
+            npm --version
+            java -version
+            dpm --version
+            dpm version
+          } 2>&1 | tee ../.reports/toolchain.log
+      - name: Build pinned Vault and its dependencies
+        working-directory: .upstream
+        run: |
+          set -euo pipefail
+          DAML_PACKAGE=examples/pausable/vault dpm build 2>&1 | tee ../.reports/build.log
+      - run: npm ci
+      - name: Run the first Vault scenario on a real open Sandbox
+        env:
+          OZ_VAULT_DAR: ${{ github.workspace }}/.upstream/examples/pausable/vault/.daml/dist/pausable-vault-example-0.0.0.dar
+        run: |
+          set -euo pipefail
+          npm test 2>&1 | tee .reports/vault-test.log
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oz-vault-test
+          path: .reports/
+          include-hidden-files: true
+          if-no-files-found: warn
