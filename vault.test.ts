@@ -5,12 +5,9 @@ import {
   type CreatedContract, type PartyContext, type SandboxSession,
 } from "@cobuilders/canton-stl";
 
-// Original module and case mapping: README.md (OZ commit 1899f7a4326c9e1b6b76cb434e490e2e82331d9c).
+// Original module: linked in README.md; scenario names match the pinned OZ tests.
 const moduleName = "OpenZeppelin.Examples.Pausable.Vault";
 const templateId = `#pausable-vault-example:${moduleName}:Vault`;
-const returnLimitation = "STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify returned CIDs/order.";
-const metadataLimitation = "Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites reserved keys; exact FailureStatus.meta cannot be recovered.";
-const interfaceLimitation = "STL 0.1.0-beta.1 does not expose interface views or evaluate the pure Daml Pausable.isPaused function.";
 
 const nonPositiveAmount = { errorId: "myapp.com/vault-non-positive-amount", category: 8, message: "Vault: amount must be positive" };
 const insufficientBalance = { errorId: "myapp.com/vault-insufficient-balance", category: 9, message: "Vault: amount exceeds balance" };
@@ -93,147 +90,221 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
     return { admin, owner, joint, initial };
   }
 
-  it("test_withdrawRunsWhileUnpaused", async (t) => {
-    const { owner, initial } = await setup();
-    const transaction = await owner.submit([exercise(initial, "Vault_Withdraw", { amount: "40.0" })]);
-    const v = await visible(owner, created(transaction, "Vault"));
-    assert.equal(decimal(v.balance), "60");
-    const p = await visible(owner, created(transaction, "Payout"));
-    assert.equal(decimal(p.amount), "40");
-    await t.test("Vault_Withdraw returns the queried Vault and Payout CIDs in tuple order", {
-      skip: returnLimitation,
-    }, () => {});
+  describe("test_withdrawRunsWhileUnpaused", () => {
+    it("Owner withdraws 40 and sees balance 60 and payout 40", async () => {
+      const { owner, initial } = await setup();
+      const transaction = await owner.submit([exercise(initial, "Vault_Withdraw", { amount: "40.0" })]);
+      const v = await visible(owner, created(transaction, "Vault"));
+      assert.equal(decimal(v.balance), "60");
+      const p = await visible(owner, created(transaction, "Payout"));
+      assert.equal(decimal(p.amount), "40");
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    it.skip("Not checked: Vault_Withdraw returns the queried Vault and Payout CIDs in tuple order", () => {});
   });
 
-  it("test_withdrawRefusesNonPositiveAmount", async (t) => {
-    const { owner, initial } = await setup();
-    await mustFailWith(owner.submit([exercise(initial, "Vault_Withdraw", { amount: "-10.0" })]), nonPositiveAmount);
-    await t.test("eNonPositiveAmount has exactly empty FailureStatus.meta", {
-      skip: metadataLimitation,
-    }, () => {});
+  describe("test_withdrawRefusesNonPositiveAmount", () => {
+    it("Owner withdrawal of -10 gets the exact non-positive-amount error", async () => {
+      const { owner, initial } = await setup();
+      await mustFailWith(owner.submit([exercise(initial, "Vault_Withdraw", { amount: "-10.0" })]), nonPositiveAmount);
+    });
+
+    // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
+    // reserved keys; exact FailureStatus.meta cannot be recovered.
+    it.skip("Not checked: eNonPositiveAmount has exactly empty FailureStatus.meta", () => {});
   });
 
-  it("test_withdrawRefusesAmountAboveBalance", async (t) => {
-    const { owner, initial } = await setup();
-    await mustFailWith(owner.submit([exercise(initial, "Vault_Withdraw", { amount: "100.5" })]), insufficientBalance);
-    await t.test("eInsufficientBalance has exactly empty FailureStatus.meta", { skip: metadataLimitation }, () => {});
+  describe("test_withdrawRefusesAmountAboveBalance", () => {
+    it("Owner withdrawal of 100.5 gets the exact insufficient-balance error", async () => {
+      const { owner, initial } = await setup();
+      await mustFailWith(owner.submit([exercise(initial, "Vault_Withdraw", { amount: "100.5" })]), insufficientBalance);
+    });
+
+    // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
+    // reserved keys; exact FailureStatus.meta cannot be recovered.
+    it.skip("Not checked: eInsufficientBalance has exactly empty FailureStatus.meta", () => {});
   });
 
-  it("test_pauseIsVisibleThroughTheView", async (t) => {
-    const { admin, owner, initial } = await setup();
-    const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    await visible(owner, vault);
-    await t.test("Pause return CID; owner PausableView {paused=True}; Daml isPaused=True", {
-      skip: `${returnLimitation} ${interfaceLimitation}`,
-    }, () => {});
+  describe("test_pauseIsVisibleThroughTheView", () => {
+    it("Admin pause succeeds and owner can query the successor Vault", async () => {
+      const { admin, owner, initial } = await setup();
+      const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      await visible(owner, vault);
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    // STL 0.1.0-beta.1 does not expose interface views or evaluate the pure Daml Pausable.isPaused
+    // function.
+    it.skip("Not checked: Pause return CID; owner PausableView {paused=True}; Daml isPaused=True", () => {});
   });
 
-  it("test_withdrawRefusedWhilePaused", async (t) => {
-    const { admin, owner, initial } = await setup();
-    const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    await mustFailWith(owner.submit([exercise(vault, "Vault_Withdraw", { amount: "10.0" })]), enforcedPause);
-    await t.test("Pause return CID; eEnforcedPause.meta", { skip: `${returnLimitation} ${metadataLimitation}` }, () => {});
+  describe("test_withdrawRefusedWhilePaused", () => {
+    it("Owner withdrawal of 10 after admin pause gets the exact enforced-pause error", async () => {
+      const { admin, owner, initial } = await setup();
+      const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      await mustFailWith(owner.submit([exercise(vault, "Vault_Withdraw", { amount: "10.0" })]), enforcedPause);
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
+    // reserved keys; exact FailureStatus.meta cannot be recovered.
+    it.skip("Not checked: Pause return CID; eEnforcedPause.meta", () => {});
   });
 
-  it("test_redeemStaysOpenWhilePaused", async (t) => {
-    const { admin, owner, initial } = await setup();
-    const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    const transaction = await owner.submit([exercise(paused, "Vault_Redeem")]);
-    const p = await visible(owner, created(transaction, "Payout"));
-    assert.equal(decimal(p.amount), "100");
-    assert.equal(p.recipient, owner.partyId);
-    const v = await visible(owner, created(transaction, "Vault"));
-    assert.equal(decimal(v.balance), "0");
-    await t.test("Pause return CID and Redeem returned CID tuple", { skip: returnLimitation }, () => {});
+  describe("test_redeemStaysOpenWhilePaused", () => {
+    it("Owner redeems while paused and sees payout 100 to owner and balance 0", async () => {
+      const { admin, owner, initial } = await setup();
+      const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      const transaction = await owner.submit([exercise(paused, "Vault_Redeem")]);
+      const p = await visible(owner, created(transaction, "Payout"));
+      assert.equal(decimal(p.amount), "100");
+      assert.equal(p.recipient, owner.partyId);
+      const v = await visible(owner, created(transaction, "Vault"));
+      assert.equal(decimal(v.balance), "0");
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    it.skip("Not checked: Pause return CID and Redeem returned CID tuple", () => {});
   });
 
-  it("test_pauseWhenPausedFails", async (t) => {
-    const { admin, initial } = await setup();
-    const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    await mustFailWith(admin.submit([exercise(vault, "Vault_Pause")]), enforcedPause);
-    await t.test("First Pause return CID; eEnforcedPause.meta", { skip: `${returnLimitation} ${metadataLimitation}` }, () => {});
+  describe("test_pauseWhenPausedFails", () => {
+    it("A second admin pause gets the exact enforced-pause error", async () => {
+      const { admin, initial } = await setup();
+      const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      await mustFailWith(admin.submit([exercise(vault, "Vault_Pause")]), enforcedPause);
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
+    // reserved keys; exact FailureStatus.meta cannot be recovered.
+    it.skip("Not checked: First Pause return CID; eEnforcedPause.meta", () => {});
   });
 
-  it("test_emergencyDrainRunsWhilePaused", async (t) => {
-    const { admin, owner, initial } = await setup();
-    const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    const transaction = await admin.submit([exercise(paused, "Vault_EmergencyDrain")]);
-    const p = await visible(admin, created(transaction, "Payout"));
-    assert.equal(decimal(p.amount), "100");
-    assert.equal(p.recipient, owner.partyId);
-    const v = await visible(admin, created(transaction, "Vault"));
-    assert.equal(decimal(v.balance), "0");
-    await t.test("Pause return CID and EmergencyDrain returned CID tuple", { skip: returnLimitation }, () => {});
+  describe("test_emergencyDrainRunsWhilePaused", () => {
+    it("Admin drains while paused and sees payout 100 to owner and balance 0", async () => {
+      const { admin, owner, initial } = await setup();
+      const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      const transaction = await admin.submit([exercise(paused, "Vault_EmergencyDrain")]);
+      const p = await visible(admin, created(transaction, "Payout"));
+      assert.equal(decimal(p.amount), "100");
+      assert.equal(p.recipient, owner.partyId);
+      const v = await visible(admin, created(transaction, "Vault"));
+      assert.equal(decimal(v.balance), "0");
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    it.skip("Not checked: Pause return CID and EmergencyDrain returned CID tuple", () => {});
   });
 
-  it("test_emergencyDrainRefusedWhileUnpaused", async (t) => {
-    const { admin, initial } = await setup();
-    await mustFailWith(admin.submit([exercise(initial, "Vault_EmergencyDrain")]), expectedPause);
-    await t.test("eExpectedPause has exactly empty FailureStatus.meta", { skip: metadataLimitation }, () => {});
+  describe("test_emergencyDrainRefusedWhileUnpaused", () => {
+    it("Admin drain of an unpaused Vault gets the exact expected-pause error", async () => {
+      const { admin, initial } = await setup();
+      await mustFailWith(admin.submit([exercise(initial, "Vault_EmergencyDrain")]), expectedPause);
+    });
+
+    // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
+    // reserved keys; exact FailureStatus.meta cannot be recovered.
+    it.skip("Not checked: eExpectedPause has exactly empty FailureStatus.meta", () => {});
   });
 
-  it("test_unpauseRestoresOperation", async (t) => {
-    const { admin, owner, initial } = await setup();
-    const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    const unpaused = created(await admin.submit([exercise(paused, "Vault_Unpause")]), "Vault");
-    await visible(admin, unpaused);
-    const transaction = await owner.submit([exercise(unpaused, "Vault_Withdraw", { amount: "40.0" })]);
-    const v = await visible(owner, created(transaction, "Vault"));
-    assert.equal(decimal(v.balance), "60");
-    const p = await visible(owner, created(transaction, "Payout"));
-    assert.equal(decimal(p.amount), "40");
-    await t.test("Pause/Unpause/Withdraw return values; Daml isPaused=False", {
-      skip: `${returnLimitation} ${interfaceLimitation}`,
-    }, () => {});
+  describe("test_unpauseRestoresOperation", () => {
+    it("Admin unpauses and owner withdraws 40, seeing balance 60 and payout 40", async () => {
+      const { admin, owner, initial } = await setup();
+      const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      const unpaused = created(await admin.submit([exercise(paused, "Vault_Unpause")]), "Vault");
+      await visible(admin, unpaused);
+      const transaction = await owner.submit([exercise(unpaused, "Vault_Withdraw", { amount: "40.0" })]);
+      const v = await visible(owner, created(transaction, "Vault"));
+      assert.equal(decimal(v.balance), "60");
+      const p = await visible(owner, created(transaction, "Payout"));
+      assert.equal(decimal(p.amount), "40");
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    // STL 0.1.0-beta.1 does not expose interface views or evaluate the pure Daml Pausable.isPaused
+    // function.
+    it.skip("Not checked: Pause/Unpause/Withdraw return values; Daml isPaused=False", () => {});
   });
 
-  it("test_unpauseWhenUnpausedFails", async (t) => {
-    const { admin, initial } = await setup();
-    await mustFailWith(admin.submit([exercise(initial, "Vault_Unpause")]), expectedPause);
-    await t.test("eExpectedPause has exactly empty FailureStatus.meta", { skip: metadataLimitation }, () => {});
+  describe("test_unpauseWhenUnpausedFails", () => {
+    it("Admin unpause of an unpaused Vault gets the exact expected-pause error", async () => {
+      const { admin, initial } = await setup();
+      await mustFailWith(admin.submit([exercise(initial, "Vault_Unpause")]), expectedPause);
+    });
+
+    // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
+    // reserved keys; exact FailureStatus.meta cannot be recovered.
+    it.skip("Not checked: eExpectedPause has exactly empty FailureStatus.meta", () => {});
   });
 
-  it("test_flagSurvivesRedeemAndDrain", async (t) => {
-    const { admin, owner, initial } = await setup();
-    const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    const redeemed = created(await owner.submit([exercise(paused, "Vault_Redeem")]), "Vault");
-    await visible(owner, redeemed);
-    await mustFailWith(owner.submit([exercise(redeemed, "Vault_Withdraw", { amount: "1.0" })]), enforcedPause);
-    const drained = created(await admin.submit([exercise(redeemed, "Vault_EmergencyDrain")]), "Vault");
-    await visible(admin, drained);
-    await t.test("Pause/Redeem/Drain returns; Daml isPaused=True after Redeem and Drain; eEnforcedPause.meta", {
-      skip: `${returnLimitation} ${interfaceLimitation} ${metadataLimitation}`,
-    }, () => {});
+  describe("test_flagSurvivesRedeemAndDrain", () => {
+    it("After Redeem, owner withdrawal of 1 gets enforced-pause; admin can Drain and query", async () => {
+      const { admin, owner, initial } = await setup();
+      const paused = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      const redeemed = created(await owner.submit([exercise(paused, "Vault_Redeem")]), "Vault");
+      await visible(owner, redeemed);
+      await mustFailWith(owner.submit([exercise(redeemed, "Vault_Withdraw", { amount: "1.0" })]), enforcedPause);
+      const drained = created(await admin.submit([exercise(redeemed, "Vault_EmergencyDrain")]), "Vault");
+      await visible(admin, drained);
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
+    // reserved keys; exact FailureStatus.meta cannot be recovered.
+    // STL 0.1.0-beta.1 does not expose interface views or evaluate the pure Daml Pausable.isPaused
+    // function.
+    it.skip("Not checked: Pause/Redeem/Drain returns; Daml isPaused=True after Redeem and Drain; eEnforcedPause.meta", () => {});
   });
 
-  it("test_ownerCannotFlipOrDrain", async (t) => {
-    const { admin, owner, initial } = await setup();
-    await mustFailAuthorization(owner.submit([exercise(initial, "Vault_Pause")]));
-    const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
-    await mustFailAuthorization(owner.submit([exercise(vault, "Vault_Unpause")]));
-    await mustFailAuthorization(owner.submit([exercise(vault, "Vault_EmergencyDrain")]));
-    await t.test("Administrator Pause returned CID", { skip: returnLimitation }, () => {});
+  describe("test_ownerCannotFlipOrDrain", () => {
+    it("Owner cannot Pause, Unpause or Drain; admin can Pause", async () => {
+      const { admin, owner, initial } = await setup();
+      await mustFailAuthorization(owner.submit([exercise(initial, "Vault_Pause")]));
+      const vault = created(await admin.submit([exercise(initial, "Vault_Pause")]), "Vault");
+      await mustFailAuthorization(owner.submit([exercise(vault, "Vault_Unpause")]));
+      await mustFailAuthorization(owner.submit([exercise(vault, "Vault_EmergencyDrain")]));
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    it.skip("Not checked: Administrator Pause returned CID", () => {});
   });
 
-  it("test_archiveRequiresBothSignatories", async () => {
-    const { admin, owner, joint, initial } = await setup();
-    await mustFailAuthorization(admin.submit([exercise(initial, "Archive")]));
-    await mustFailAuthorization(owner.submit([exercise(initial, "Archive")]));
-    await joint.submit([exercise(initial, "Archive")]);
-    assert.equal(await query(admin, initial), undefined);
-    assert.equal(await query(owner, initial), undefined);
+  describe("test_archiveRequiresBothSignatories", () => {
+    it("Vault Archive requires both signatories and removes it from both parties' queries", async () => {
+      const { admin, owner, joint, initial } = await setup();
+      await mustFailAuthorization(admin.submit([exercise(initial, "Archive")]));
+      await mustFailAuthorization(owner.submit([exercise(initial, "Archive")]));
+      await joint.submit([exercise(initial, "Archive")]);
+      assert.equal(await query(admin, initial), undefined);
+      assert.equal(await query(owner, initial), undefined);
+    });
   });
 
-  it("test_payoutArchiveRequiresPayer", async (t) => {
-    const { admin, owner, initial } = await setup();
-    const transaction = await owner.submit([exercise(initial, "Vault_Withdraw", { amount: "40.0" })]);
-    const payout = created(transaction, "Payout");
-    await mustFailAuthorization(owner.submit([exercise(payout, "Archive")]));
-    await admin.submit([exercise(payout, "Archive")]);
-    assert.equal(await query(admin, payout), undefined);
-    assert.equal(await query(owner, payout), undefined);
-    const v = await visible(owner, created(transaction, "Vault"));
-    assert.equal(decimal(v.balance), "60");
-    await t.test("Withdraw returned Vault/Payout CIDs in tuple order", { skip: returnLimitation }, () => {});
+  describe("test_payoutArchiveRequiresPayer", () => {
+    it("Only payer can archive Payout; it disappears for both and owner's Vault balance stays 60", async () => {
+      const { admin, owner, initial } = await setup();
+      const transaction = await owner.submit([exercise(initial, "Vault_Withdraw", { amount: "40.0" })]);
+      const payout = created(transaction, "Payout");
+      await mustFailAuthorization(owner.submit([exercise(payout, "Archive")]));
+      await admin.submit([exercise(payout, "Archive")]);
+      assert.equal(await query(admin, payout), undefined);
+      assert.equal(await query(owner, payout), undefined);
+      const v = await visible(owner, created(transaction, "Vault"));
+      assert.equal(decimal(v.balance), "60");
+    });
+
+    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // returned CIDs/order.
+    it.skip("Not checked: Withdraw returned Vault/Payout CIDs in tuple order", () => {});
   });
 });
