@@ -100,7 +100,7 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       assert.equal(decimal(p.amount), "40");
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     it.skip("Not checked: Vault_Withdraw returns the queried Vault and Payout CIDs in tuple order", () => {});
   });
@@ -134,9 +134,9 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       await visible(owner, vault);
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
-    // STL 0.1.0-beta.1 does not expose interface views or evaluate the pure Daml Pausable.isPaused
+    // STL 0.1.0-beta.2 does not expose interface views or evaluate the pure Daml Pausable.isPaused
     // function.
     it.skip("Not checked: Pause return CID; owner PausableView {paused=True}; Daml isPaused=True", () => {});
   });
@@ -148,7 +148,7 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       await mustFailWith(owner.submit([exercise(vault, "Vault_Withdraw", { amount: "10.0" })]), enforcedPause);
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
     // reserved keys; exact FailureStatus.meta cannot be recovered.
@@ -167,7 +167,7 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       assert.equal(decimal(v.balance), "0");
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     it.skip("Not checked: Pause return CID and Redeem returned CID tuple", () => {});
   });
@@ -179,7 +179,7 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       await mustFailWith(admin.submit([exercise(vault, "Vault_Pause")]), enforcedPause);
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
     // reserved keys; exact FailureStatus.meta cannot be recovered.
@@ -198,7 +198,7 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       assert.equal(decimal(v.balance), "0");
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     it.skip("Not checked: Pause return CID and EmergencyDrain returned CID tuple", () => {});
   });
@@ -227,9 +227,9 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       assert.equal(decimal(p.amount), "40");
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
-    // STL 0.1.0-beta.1 does not expose interface views or evaluate the pure Daml Pausable.isPaused
+    // STL 0.1.0-beta.2 does not expose interface views or evaluate the pure Daml Pausable.isPaused
     // function.
     it.skip("Not checked: Pause/Unpause/Withdraw return values; Daml isPaused=False", () => {});
   });
@@ -256,11 +256,11 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       await visible(admin, drained);
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     // Canton 3.5.6 Ledger API merges application metadata into engine context and overwrites
     // reserved keys; exact FailureStatus.meta cannot be recovered.
-    // STL 0.1.0-beta.1 does not expose interface views or evaluate the pure Daml Pausable.isPaused
+    // STL 0.1.0-beta.2 does not expose interface views or evaluate the pure Daml Pausable.isPaused
     // function.
     it.skip("Not checked: Pause/Redeem/Drain returns; Daml isPaused=True after Redeem and Drain; eEnforcedPause.meta", () => {});
   });
@@ -274,7 +274,7 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       await mustFailAuthorization(owner.submit([exercise(vault, "Vault_EmergencyDrain")]));
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     it.skip("Not checked: Administrator Pause returned CID", () => {});
   });
@@ -303,7 +303,7 @@ describe("OpenZeppelin Pausable Vault on a real open Sandbox", { timeout: 180_00
       assert.equal(decimal(v.balance), "60");
     });
 
-    // STL 0.1.0-beta.1 does not currently expose choice return values; created events cannot verify
+    // STL 0.1.0-beta.2 does not currently expose choice return values; created events cannot verify
     // returned CIDs/order.
     it.skip("Not checked: Withdraw returned Vault/Payout CIDs in tuple order", () => {});
   });
