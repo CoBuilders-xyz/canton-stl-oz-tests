@@ -1,6 +1,6 @@
 # canton-stl-oz-tests
 
-Reproduces the 15 [OpenZeppelin Pausable Vault tests](https://github.com/OpenZeppelin/canton-contracts/blob/1899f7a4326c9e1b6b76cb434e490e2e82331d9c/examples/pausable/vault-test/daml/OpenZeppelin/Examples/Pausable/VaultTest.daml) using `@cobuilders/canton-stl@0.1.0-beta.1` against a shared local Sandbox, with fresh parties and contracts per case.
+Reproduces the 15 [OpenZeppelin Pausable Vault tests](https://github.com/OpenZeppelin/canton-contracts/blob/1899f7a4326c9e1b6b76cb434e490e2e82331d9c/examples/pausable/vault-test/daml/OpenZeppelin/Examples/Pausable/VaultTest.daml) using `@cobuilders/canton-stl@0.1.0-beta.2` against a shared local Sandbox, with fresh parties and contracts per case.
 
 **Skips are intentional:** the current STL beta does not support every original assertion yet. Each skipped check has a source comment explaining the limitation, including cases where Canton's JSON response cannot preserve the original information. The console marks scenarios as `COMPLETE`, `PARTIAL` or `FAILED`.
 

@@ -10,6 +10,6 @@
     "test": "node --test --test-reporter ./test-reporter.js vault.test.ts"
   },
   "dependencies": {
-    "@cobuilders/canton-stl": "0.1.0-beta.1"
+    "@cobuilders/canton-stl": "0.1.0-beta.2"
   }
 }
