@@ -29,15 +29,15 @@ printf 'components:\n  - canton-open-source:3.5.6\n' > "$runtime_config/daml.yam
 rm -rf "$runtime_config"
 ```
 
-Build each selected original test package and its dependencies:
+Build the contracts and fixtures loaded by the STL tests. Token utils uses the unchanged Harness and fixture templates from OZ's test package:
 
 ```sh
-(cd .upstream && DAML_PACKAGE=examples/pausable/vault-test dpm build)
-(cd .upstream && DAML_PACKAGE=test/token-cip112-v1-test dpm build)
+(cd .upstream && DAML_PACKAGE=examples/pausable/vault dpm build)
+(cd .upstream && DAML_PACKAGE=packages/token/token-cip112-v1 dpm build)
 (cd .upstream && DAML_PACKAGE=test/token-cip112-utils-test dpm build)
 ```
 
-Run the ports independently (`npm test` runs only Vault):
+Run the STL suites independently (`npm test` runs only Vault):
 
 ```sh
 OZ_VAULT_DAR="$PWD/.upstream/examples/pausable/vault/.daml/dist/pausable-vault-example-0.0.0.dar" npm test
@@ -45,22 +45,14 @@ OZ_TOKEN_DAR="$PWD/.upstream/packages/token/token-cip112-v1/.daml/dist/openzeppe
 OZ_TOKEN_UTILS_DAR="$PWD/.upstream/test/token-cip112-utils-test/.daml/dist/openzeppelin-token-cip112-utils-test-0.0.0.dar" npm run test:token-utils
 ```
 
-Run the unchanged original baselines in memory. Upstream also includes token mint/query in its Sandbox gate; utils is outside that gate:
-
-```sh
-(cd .upstream && DAML_PACKAGE=examples/pausable/vault-test dpm test --test-pattern test_)
-(cd .upstream && DAML_PACKAGE=test/token-cip112-v1-test dpm test --test-pattern sandboxMintAndQuery)
-(cd .upstream && DAML_PACKAGE=test/token-cip112-utils-test dpm test --test-pattern test)
-```
-
-| Suite | Original baseline | STL port coverage |
-| --- | --- | --- |
-| Vault | 15 cases | 15 business checks; 14 scenarios have a skipped assertion. |
-| Token | Only mint/query: 1 case | 1 case runs; transfer lifecycle and mint/burn are omitted by PoC scope. |
-| Token utils | All 20 package cases | 9 guards run from the selected 10-case block; 1 live-deadline case is skipped. |
+| Suite | STL coverage |
+| --- | --- |
+| Token | 1 case runs; transfer lifecycle and mint/burn are omitted by PoC scope. |
+| Token utils | 9 guards run from the selected 10-case block; 1 live-deadline case is skipped. |
+| Vault | 15 business checks; 14 scenarios have a skipped assertion. |
 
 Mint/query and the executed utils guards omit unused clock setup while preserving payload dates; mint/query also omits unused TokenRules/disclosure/settlement setup. This is not literal fixture parity.
 
 The ports use an open Sandbox; JWT authentication is not validated.
 
-[GitHub Actions](https://github.com/CoBuilders-xyz/canton-stl-oz-tests/actions/workflows/tests.yml) runs independent `vault`, `token` and `token-utils` jobs. They upload separate `oz-<suite>-test` artifacts containing `.reports/<suite>/` logs and JUnit results, including on failure.
+[GitHub Actions](https://github.com/CoBuilders-xyz/canton-stl-oz-tests/actions/workflows/tests.yml) runs independent `vault`, `token` and `token-utils` jobs. Each builds the required DARs and runs only the STL suite against Sandbox. They upload separate `oz-<suite>-test` artifacts containing `.reports/<suite>/` logs, including on failure. The original Daml tests are the source reference and are not executed by this workflow.
