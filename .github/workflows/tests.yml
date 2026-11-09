@@ -27,20 +27,17 @@ jobs:
       matrix:
         include:
           - suite: vault
-            package: examples/pausable/vault-test
-            pattern: test_
+            package: examples/pausable/vault
             npm_script: test
             dar_env: OZ_VAULT_DAR
             dar: .upstream/examples/pausable/vault/.daml/dist/pausable-vault-example-0.0.0.dar
           - suite: token
-            package: test/token-cip112-v1-test
-            pattern: sandboxMintAndQuery
+            package: packages/token/token-cip112-v1
             npm_script: test:token
             dar_env: OZ_TOKEN_DAR
             dar: .upstream/packages/token/token-cip112-v1/.daml/dist/openzeppelin-token-cip112-v1-0.1.0.dar
           - suite: token-utils
             package: test/token-cip112-utils-test
-            pattern: test
             npm_script: test:token-utils
             dar_env: OZ_TOKEN_UTILS_DAR
             dar: .upstream/test/token-cip112-utils-test/.daml/dist/openzeppelin-token-cip112-utils-test-0.0.0.dar
@@ -101,7 +98,7 @@ jobs:
             dpm --version
             dpm version
           } 2>&1 | tee "$REPORT_DIR/toolchain.log"
-      - name: Build the selected original suite and its dependencies
+      - name: Build contracts and fixtures for the STL suite
         working-directory: .upstream
         env:
           DAML_PACKAGE: ${{ matrix.package }}
@@ -112,17 +109,8 @@ jobs:
           dpm build 2>&1 | tee "$REPORT_DIR/build.log"
           test -f "$DAR_PATH" || { printf 'Missing built DAR: %s\n' "$DAR_PATH" >&2; exit 1; }
           printf '%s=%s\n' "$DAR_ENV" "$DAR_PATH" >> "$GITHUB_ENV"
-      - name: Original Daml baseline (in memory)
-        working-directory: .upstream
-        env:
-          DAML_PACKAGE: ${{ matrix.package }}
-          TEST_PATTERN: ${{ matrix.pattern }}
-        run: |
-          set -euo pipefail
-          dpm test --test-pattern "$TEST_PATTERN" \
-            --junit "$REPORT_DIR/original.xml" 2>&1 | tee "$REPORT_DIR/original.log"
       - run: npm ci
-      - name: Run the STL port on a real open Sandbox
+      - name: Run STL tests on a real open Sandbox
         env:
           NPM_SCRIPT: ${{ matrix.npm_script }}
         run: |
