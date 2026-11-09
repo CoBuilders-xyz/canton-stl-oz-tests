@@ -7,7 +7,9 @@
     "node": ">=24.10.0"
   },
   "scripts": {
-    "test": "node --test --test-reporter ./test-reporter.js vault.test.ts"
+    "test": "node --test --test-reporter ./test-reporter.js tests/vault.test.ts",
+    "test:token": "node --test --test-reporter ./test-reporter.js tests/token.test.ts",
+    "test:token-utils": "node --test --test-reporter ./test-reporter.js tests/token-utils.test.ts"
   },
   "dependencies": {
     "@cobuilders/canton-stl": "0.1.0-beta.2"

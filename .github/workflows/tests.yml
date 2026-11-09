@@ -1,4 +1,4 @@
-name: OZ Vault test
+name: OZ contract tests
 
 "on":
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: oz-vault-${{ github.ref }}
+  group: oz-tests-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -19,11 +19,35 @@ defaults:
 
 jobs:
   test:
+    name: ${{ matrix.suite }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: vault
+            package: examples/pausable/vault-test
+            pattern: test_
+            npm_script: test
+            dar_env: OZ_VAULT_DAR
+            dar: .upstream/examples/pausable/vault/.daml/dist/pausable-vault-example-0.0.0.dar
+          - suite: token
+            package: test/token-cip112-v1-test
+            pattern: sandboxMintAndQuery
+            npm_script: test:token
+            dar_env: OZ_TOKEN_DAR
+            dar: .upstream/packages/token/token-cip112-v1/.daml/dist/openzeppelin-token-cip112-v1-0.1.0.dar
+          - suite: token-utils
+            package: test/token-cip112-utils-test
+            pattern: test
+            npm_script: test:token-utils
+            dar_env: OZ_TOKEN_UTILS_DAR
+            dar: .upstream/test/token-cip112-utils-test/.daml/dist/openzeppelin-token-cip112-utils-test-0.0.0.dar
     env:
       LANG: C.UTF-8
       LC_ALL: C.UTF-8
+      REPORT_DIR: ${{ github.workspace }}/.reports/${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -44,9 +68,10 @@ jobs:
           java-version: "21"
       - name: Prepare reports
         run: |
-          mkdir -p .reports
+          set -euo pipefail
+          mkdir -p "$REPORT_DIR"
           echo "DPM_HOME=$RUNNER_TEMP/dpm" >> "$GITHUB_ENV"
-          git -C .upstream rev-parse HEAD | tee .reports/upstream-commit.txt
+          git -C .upstream rev-parse HEAD | tee "$REPORT_DIR/upstream-commit.txt"
       - name: Install DPM, SDK 3.5.8 and Canton 3.5.6
         working-directory: .upstream
         run: |
@@ -75,30 +100,39 @@ jobs:
             java -version
             dpm --version
             dpm version
-          } 2>&1 | tee ../.reports/toolchain.log
-      - name: Build the original Vault suite and its dependencies
+          } 2>&1 | tee "$REPORT_DIR/toolchain.log"
+      - name: Build the selected original suite and its dependencies
         working-directory: .upstream
-        run: |
-          set -euo pipefail
-          DAML_PACKAGE=examples/pausable/vault-test dpm build 2>&1 | tee ../.reports/build.log
-      - name: Original Daml Vault baseline
-        working-directory: .upstream
-        run: |
-          set -euo pipefail
-          DAML_PACKAGE=examples/pausable/vault-test dpm test --test-pattern test_ \
-            --junit "$GITHUB_WORKSPACE/.reports/original.xml" 2>&1 | tee ../.reports/original.log
-      - run: npm ci
-      - name: Run all 15 STL Vault scenarios on a real open Sandbox
         env:
-          OZ_VAULT_DAR: ${{ github.workspace }}/.upstream/examples/pausable/vault/.daml/dist/pausable-vault-example-0.0.0.dar
+          DAML_PACKAGE: ${{ matrix.package }}
+          DAR_ENV: ${{ matrix.dar_env }}
+          DAR_PATH: ${{ github.workspace }}/${{ matrix.dar }}
         run: |
           set -euo pipefail
-          npm test 2>&1 | tee .reports/vault-test.log
+          dpm build 2>&1 | tee "$REPORT_DIR/build.log"
+          test -f "$DAR_PATH" || { printf 'Missing built DAR: %s\n' "$DAR_PATH" >&2; exit 1; }
+          printf '%s=%s\n' "$DAR_ENV" "$DAR_PATH" >> "$GITHUB_ENV"
+      - name: Original Daml baseline (in memory)
+        working-directory: .upstream
+        env:
+          DAML_PACKAGE: ${{ matrix.package }}
+          TEST_PATTERN: ${{ matrix.pattern }}
+        run: |
+          set -euo pipefail
+          dpm test --test-pattern "$TEST_PATTERN" \
+            --junit "$REPORT_DIR/original.xml" 2>&1 | tee "$REPORT_DIR/original.log"
+      - run: npm ci
+      - name: Run the STL port on a real open Sandbox
+        env:
+          NPM_SCRIPT: ${{ matrix.npm_script }}
+        run: |
+          set -euo pipefail
+          npm run "$NPM_SCRIPT" 2>&1 | tee "$REPORT_DIR/stl.log"
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: oz-vault-test
-          path: .reports/
+          name: oz-${{ matrix.suite }}-test
+          path: ${{ env.REPORT_DIR }}/
           include-hidden-files: true
           if-no-files-found: warn
